@@ -1,0 +1,4 @@
+pkg/
+target/
+worker/generated/
+**/*.rs.bk
