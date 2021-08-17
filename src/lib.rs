@@ -80,5 +80,5 @@ fn end(_game_state: GameState) -> Result<String> {
 }
 
 fn do_move(game_state: GameState) -> Result<String> {
-    to_string(&MoveResponse::new(next_move(game_state))).map_err(From::from)
+    to_string(&MoveResponse::new(next_move(&game_state))).map_err(From::from)
 }
