@@ -40,7 +40,7 @@ pub async fn run(request: Request) -> String {
 async fn do_run(request: Request) -> Result<String> {
     let url = request.url();
     // I didn't want to install the url crate.
-    let path_start = url.match_indices("/").nth(2).unwrap().0;
+    let path_start = url.match_indices('/').nth(2).unwrap().0;
     let path = &url[path_start..];
     let method = request.method();
     match (method.as_str(), path) {

@@ -42,8 +42,8 @@ pub struct Game {
 
 #[derive(Default, Deserialize)]
 pub struct Board {
-    height: u32,
-    width: u32,
+    height: i32,
+    width: i32,
     food: Vec<Coord>,
     hazards: Vec<Coord>,
     snakes: Vec<Battlesnake>,
@@ -51,8 +51,8 @@ pub struct Board {
 
 #[derive(Clone, Default, Deserialize, Eq, Hash, PartialEq)]
 pub struct Coord {
-    x: u32,
-    y: u32,
+    x: i32,
+    y: i32,
 }
 
 impl Coord {
@@ -90,13 +90,15 @@ pub enum Direction {
 use Direction::*;
 
 pub fn next_move(game_state: &GameState) -> Direction {
+    let Board { height, width, .. } = game_state.board;
     let head = &game_state.you.head;
     let target = &game_state.board.food[0];
     let dirs = [Up, Down, Left, Right];
     let mut allowed: HashSet<_> = dirs.iter().cloned().collect();
     let body: HashSet<_> = game_state.you.body.iter().cloned().collect();
     for ref dir in dirs {
-        if body.contains(&head.go(dir)) {
+        let next = head.go(dir);
+        if !(0..width).contains(&next.x) || !(0..height).contains(&next.y) || body.contains(&next) {
             allowed.remove(dir);
         }
     }
@@ -120,6 +122,8 @@ mod tests {
     #[test]
     fn moves_towards_food() {
         let mut game_state: GameState = Default::default();
+        game_state.board.height = 11;
+        game_state.board.width = 11;
         game_state.board.food = vec![Coord { x: 5, y: 5 }];
         game_state.you.head = Coord { x: 5, y: 3 };
         assert_eq!(next_move(&game_state), Up);
@@ -134,6 +138,8 @@ mod tests {
     #[test]
     fn avoids_self() {
         let mut game_state: GameState = Default::default();
+        game_state.board.height = 11;
+        game_state.board.width = 11;
         game_state.board.food = vec![Coord { x: 5, y: 5 }];
         game_state.you.head = Coord { x: 5, y: 3 };
         game_state.you.body = vec![Coord { x: 5, y: 3 }, Coord { x: 5, y: 4 }];
@@ -146,6 +152,26 @@ mod tests {
         assert_ne!(next_move(&game_state), Left);
         game_state.you.head = Coord { x: 3, y: 5 };
         game_state.you.body = vec![Coord { x: 3, y: 5 }, Coord { x: 4, y: 5 }];
+        assert_ne!(next_move(&game_state), Right);
+    }
+
+    #[test]
+    fn avoids_walls() {
+        let mut game_state: GameState = Default::default();
+        game_state.board.height = 11;
+        game_state.board.width = 11;
+        game_state.board.food = vec![Coord { x: 5, y: 5 }];
+        game_state.you.head = Coord { x: 5, y: 10 };
+        game_state.you.body = vec![Coord { x: 5, y: 10 }, Coord { x: 5, y: 9 }];
+        assert_ne!(next_move(&game_state), Up);
+        game_state.you.head = Coord { x: 5, y: 0 };
+        game_state.you.body = vec![Coord { x: 5, y: 0 }, Coord { x: 5, y: 1 }];
+        assert_ne!(next_move(&game_state), Down);
+        game_state.you.head = Coord { x: 0, y: 5 };
+        game_state.you.body = vec![Coord { x: 0, y: 5 }, Coord { x: 1, y: 5 }];
+        assert_ne!(next_move(&game_state), Left);
+        game_state.you.head = Coord { x: 10, y: 5 };
+        game_state.you.body = vec![Coord { x: 10, y: 5 }, Coord { x: 9, y: 5 }];
         assert_ne!(next_move(&game_state), Right);
     }
 }
