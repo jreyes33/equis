@@ -67,7 +67,7 @@ impl Coord {
     }
 }
 
-#[derive(Default, Deserialize)]
+#[derive(Clone, Default, Deserialize)]
 pub struct Battlesnake {
     id: String,
     name: String,
@@ -89,16 +89,23 @@ pub enum Direction {
 
 use Direction::*;
 
+const DIRECTIONS: [Direction; 4] = [Up, Down, Left, Right];
+
 pub fn next_move(game_state: &GameState) -> Direction {
-    let Board { height, width, .. } = game_state.board;
+    let Board {
+        height,
+        width,
+        ref snakes,
+        ..
+    } = game_state.board;
     let head = &game_state.you.head;
     let target = &game_state.board.food[0];
-    let dirs = [Up, Down, Left, Right];
-    let mut allowed: HashSet<_> = dirs.iter().cloned().collect();
-    let body: HashSet<_> = game_state.you.body.iter().cloned().collect();
-    for ref dir in dirs {
+    let mut allowed: HashSet<_> = DIRECTIONS.iter().collect();
+    let blocked: HashSet<_> = snakes.iter().flat_map(|s| &s.body).collect();
+    for ref dir in DIRECTIONS {
         let next = head.go(dir);
-        if !(0..width).contains(&next.x) || !(0..height).contains(&next.y) || body.contains(&next) {
+        let Coord { ref x, ref y } = next;
+        if !(0..width).contains(x) || !(0..height).contains(y) || blocked.contains(&next) {
             allowed.remove(dir);
         }
     }
@@ -111,7 +118,7 @@ pub fn next_move(game_state: &GameState) -> Direction {
     } else if allowed.contains(&Down) {
         Down
     } else {
-        allowed.iter().next().unwrap_or(&Up).to_owned()
+        allowed.into_iter().next().unwrap_or(&Up).to_owned()
     }
 }
 
@@ -126,12 +133,16 @@ mod tests {
         game_state.board.width = 11;
         game_state.board.food = vec![Coord { x: 5, y: 5 }];
         game_state.you.head = Coord { x: 5, y: 3 };
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_eq!(next_move(&game_state), Up);
         game_state.you.head = Coord { x: 5, y: 7 };
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_eq!(next_move(&game_state), Down);
         game_state.you.head = Coord { x: 7, y: 5 };
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_eq!(next_move(&game_state), Left);
         game_state.you.head = Coord { x: 3, y: 5 };
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_eq!(next_move(&game_state), Right);
     }
 
@@ -143,15 +154,19 @@ mod tests {
         game_state.board.food = vec![Coord { x: 5, y: 5 }];
         game_state.you.head = Coord { x: 5, y: 3 };
         game_state.you.body = vec![Coord { x: 5, y: 3 }, Coord { x: 5, y: 4 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Up);
         game_state.you.head = Coord { x: 5, y: 7 };
         game_state.you.body = vec![Coord { x: 5, y: 7 }, Coord { x: 5, y: 6 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Down);
         game_state.you.head = Coord { x: 7, y: 5 };
         game_state.you.body = vec![Coord { x: 7, y: 5 }, Coord { x: 6, y: 5 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Left);
         game_state.you.head = Coord { x: 3, y: 5 };
         game_state.you.body = vec![Coord { x: 3, y: 5 }, Coord { x: 4, y: 5 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Right);
     }
 
@@ -163,15 +178,40 @@ mod tests {
         game_state.board.food = vec![Coord { x: 5, y: 5 }];
         game_state.you.head = Coord { x: 5, y: 10 };
         game_state.you.body = vec![Coord { x: 5, y: 10 }, Coord { x: 5, y: 9 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Up);
         game_state.you.head = Coord { x: 5, y: 0 };
         game_state.you.body = vec![Coord { x: 5, y: 0 }, Coord { x: 5, y: 1 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Down);
         game_state.you.head = Coord { x: 0, y: 5 };
         game_state.you.body = vec![Coord { x: 0, y: 5 }, Coord { x: 1, y: 5 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Left);
         game_state.you.head = Coord { x: 10, y: 5 };
         game_state.you.body = vec![Coord { x: 10, y: 5 }, Coord { x: 9, y: 5 }];
+        game_state.board.snakes = vec![game_state.you.clone()];
         assert_ne!(next_move(&game_state), Right);
+    }
+
+    #[test]
+    fn avoids_others() {
+        let mut game_state: GameState = Default::default();
+        game_state.board.height = 11;
+        game_state.board.width = 11;
+        game_state.board.food = vec![Coord { x: 5, y: 5 }];
+        game_state.you.head = Coord { x: 5, y: 3 };
+        game_state.you.body = vec![Coord { x: 5, y: 3 }, Coord { x: 5, y: 2 }];
+        let other = Battlesnake {
+            head: Coord { x: 5, y: 4 },
+            body: vec![
+                Coord { x: 5, y: 4 },
+                Coord { x: 4, y: 4 },
+                Coord { x: 4, y: 3 },
+            ],
+            ..Default::default()
+        };
+        game_state.board.snakes = vec![game_state.you.clone(), other];
+        assert_eq!(next_move(&game_state), Right);
     }
 }
