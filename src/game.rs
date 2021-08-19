@@ -17,7 +17,7 @@ impl Default for SnakeInfo<'_> {
         SnakeInfo {
             apiversion: "1",
             author: "jreyes33",
-            color: "##669d83",
+            color: "#669d83",
             head: "dead",
             tail: "hook",
             version: "0.1.0",
