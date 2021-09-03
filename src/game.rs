@@ -36,7 +36,6 @@ pub struct GameState {
 #[derive(Default, Deserialize)]
 pub struct Game {
     id: String,
-    ruleset: HashMap<String, String>,
     timeout: u32,
 }
 
